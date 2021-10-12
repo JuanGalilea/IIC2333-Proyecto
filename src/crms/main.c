@@ -18,5 +18,16 @@ int main(int argc, char **argv)
     return 1;
   }
   cr_mount(argv[1]);
+  printf("\n");
   cr_ls_processes();
+  printf("\n");
+  cr_ls_files(200);
+  char* filename = "greatcat.mp4";
+  int ex = cr_exists1(200,filename);
+  if (ex == 1){
+    printf("File exists in process.\n");
+  }else{
+    printf("File not exists in process.\n");
+  }
+  printf("\n");
 }

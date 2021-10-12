@@ -26,8 +26,8 @@ void cr_ls_processes(){
         unsigned int pid = buffer[1];
         printf("PID: %i   ", pid);
         char name[12];
-        for(int i = 0; i<12; i++){
-            sprintf(&name[i],"%c",(char) buffer[2+i]);
+        for(int j = 0; j<12; j++){
+            sprintf(&name[j],"%c",(char) buffer[2+j]);
         }
         printf("Process name: %s \n",name);
     }
@@ -35,3 +35,108 @@ void cr_ls_processes(){
     fclose(fileDisk);
     
 }
+
+void cr_ls_files(int process_id){
+    printf("List of files in process with pid %i.\n",process_id);
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb"); 
+
+    for(int i = 0; i < 16; i++){
+        fseek(fileDisk, i*256, SEEK_SET);
+        unsigned char buffer[256];
+        fread(buffer,sizeof(buffer),1,fileDisk);
+                
+        unsigned int pid = buffer[1];
+        if (pid == process_id){
+            for(int j=0;j<10;j++){
+                if(buffer[14+j*21] != 0x01){
+                    continue;
+                }
+                char filename[12];
+                for(int k = 0; k<12; k++){
+                    sprintf(&filename[k],"%c",(char) buffer[14+j*21+k+1]);
+                }
+                printf("Filename: %s\n",filename);
+            }
+            return;
+        }
+
+        
+    }
+    printf("Pid not found\n");
+    fclose(fileDisk);
+}
+
+int cr_exists(int process_id, char* file_name){
+    printf("Checking if file %s exist in process %i.\n",file_name, process_id);
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb"); 
+
+    for(int i = 0; i < 16; i++){
+        fseek(fileDisk, i*256, SEEK_SET);
+        unsigned char buffer[256];
+        fread(buffer,sizeof(buffer),1,fileDisk);
+                
+        unsigned int pid = buffer[1];
+        if (pid == process_id){
+            for(int j=0;j<10;j++){
+                if(buffer[14+j*21] != 0x01){
+                    continue;
+                }
+                int count = 0;
+                for(int k = 0; k<12; k++){
+                    if(file_name[k] == (char) buffer[14+j*21+k+1]){
+                        count++;
+                    }
+                }
+                if(count == 12){
+                    return 1;
+                }
+            }
+            return 0;
+        }
+
+        
+    }
+    
+    fclose(fileDisk);
+    return 0;
+}
+int cr_exists1(int process_id, char* file_name){
+    printf("Checking if file %s exist in process %i.\n",file_name, process_id);
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb"); 
+
+    for(int i = 0; i < 16; i++){
+        fseek(fileDisk, i*256, SEEK_SET);
+        unsigned char buffer[256];
+        fread(buffer,sizeof(buffer),1,fileDisk);
+                
+        unsigned int pid = buffer[1];
+        if (pid == process_id){
+            for(int j=0;j<10;j++){
+                if(buffer[14+j*21] != 0x01){
+                    continue;
+                }
+                char filename[12];
+                for(int k = 0; k<12; k++){
+                    sprintf(&filename[k],"%c",(char) buffer[14+j*21+k+1]);
+                }
+
+                if(strcmp(filename, file_name) == 0){
+                    return 1;
+                }
+            }
+            return 0;
+        }
+
+        
+    }
+    
+    fclose(fileDisk);
+    return 0;
+}
+
