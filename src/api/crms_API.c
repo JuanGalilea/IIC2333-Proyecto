@@ -1,6 +1,18 @@
 #include "crms_API.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+
+int len_string(char* string){
+    int i=0;
+    while(1){
+        if (string[i] == '\0'){
+            break;
+        }
+        i++;
+    }
+    return i;
+}
 
 void cr_mount(char* memory_path){
     strcpy(diskPath,memory_path);
@@ -36,6 +48,8 @@ void cr_ls_processes(){
     
 }
 
+
+
 void cr_ls_files(int process_id){
     printf("List of files in process with pid %i.\n",process_id);
     FILE *fileDisk;
@@ -59,6 +73,7 @@ void cr_ls_files(int process_id){
                 }
                 printf("Filename: %s\n",filename);
             }
+            fclose(fileDisk);
             return;
         }
 
@@ -69,44 +84,6 @@ void cr_ls_files(int process_id){
 }
 
 int cr_exists(int process_id, char* file_name){
-    printf("Checking if file %s exist in process %i.\n",file_name, process_id);
-    FILE *fileDisk;
-
-    fileDisk = fopen(diskPath,"rb"); 
-
-    for(int i = 0; i < 16; i++){
-        fseek(fileDisk, i*256, SEEK_SET);
-        unsigned char buffer[256];
-        fread(buffer,sizeof(buffer),1,fileDisk);
-                
-        unsigned int pid = buffer[1];
-        if (pid == process_id){
-            for(int j=0;j<10;j++){
-                if(buffer[14+j*21] != 0x01){
-                    continue;
-                }
-                int count = 0;
-                for(int k = 0; k<12; k++){
-                    if(file_name[k] == (char) buffer[14+j*21+k+1]){
-                        count++;
-                    }
-                }
-                if(count == 12){
-                    return 1;
-                }
-            }
-            return 0;
-        }
-
-        
-    }
-    
-    fclose(fileDisk);
-    return 0;
-}
-
-// TODO: utilizar cr_find_file para crear esta func???
-int cr_exists1(int process_id, char* file_name){
     printf("Checking if file %s exist in process %i.\n",file_name, process_id);
     FILE *fileDisk;
 
@@ -140,6 +117,218 @@ int cr_exists1(int process_id, char* file_name){
     
     fclose(fileDisk);
     return 0;
+}
+
+// TODO: utilizar cr_find_file para crear esta func???
+int cr_exists1(int process_id, char* file_name){
+    printf("Checking if file %s exist in process %i.\n",file_name, process_id);
+
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb"); 
+
+    for(int i = 0; i < 16; i++){
+        fseek(fileDisk, i*256, SEEK_SET);
+        unsigned char buffer[256];
+        fread(buffer,sizeof(buffer),1,fileDisk);
+                
+        unsigned int pid = buffer[1];
+        if (pid == process_id){
+            fclose(fileDisk);
+            return i;
+        }   // not found
+    }
+    fclose(fileDisk);
+    return -1;
+}
+
+void cr_start_process(int process_id, char *process_name){
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb+"); 
+
+    int start = -1;
+    int size_string = len_string(process_name);
+    if (size_string > 12){
+        printf("Invalid size of process name.\n");
+        fclose(fileDisk);
+        return;
+    }
+    uint8_t pid ;
+    if (0 <= process_id && process_id <256){
+        pid = process_id;
+    }else{
+        printf("Invalid range of process id.\n");
+        fclose(fileDisk);
+        return;
+    }
+        
+    for(int i = 0; i < 16; i++){
+        fseek(fileDisk, i*256, SEEK_SET);
+        unsigned char buffer[256];
+        fread(buffer,sizeof(buffer),1,fileDisk);
+        if (buffer[0] == 0x00 && start == -1){
+            start = i;
+        }        
+        unsigned int pid = buffer[1];
+        if (pid == process_id && buffer[0]== 0x01){
+            printf("Process with id %i exists.\n",process_id);
+            fclose(fileDisk);
+            return;
+        }
+    }
+    if(start != -1){
+        int init = start*256;
+        uint8_t valid = 1;
+        fseek(fileDisk,init,SEEK_SET);
+        fwrite(&valid,1,1,fileDisk);
+        fseek(fileDisk,init+1,SEEK_SET);
+        fwrite(&pid,sizeof(uint8_t),1,fileDisk);
+        for(int k = 0; k<size_string; k++){
+            fseek(fileDisk,init+2+k,SEEK_SET);
+            fwrite(&process_name[k],sizeof(char),1,fileDisk);
+        }
+        
+        printf("Process with id %i has been created.\n",process_id);
+    }else{
+        printf("All memory is in used, remove a process to start this process.\n");
+        fclose(fileDisk);
+        return;
+    }
+    
+
+    
+    fclose(fileDisk);
+}
+
+void escribir(){
+
+}
+
+void cr_finish_process(int process_id){
+    
+    printf("List of files in process with pid %i.\n",process_id);
+    FILE *fileDisk;
+    fileDisk = fopen(diskPath,"rb+"); 
+
+    int entry = find_process_entry(process_id);
+    //entry = entrada en la tabla de pcbs
+    if (entry == -1){
+        printf("Process doesn't exists :(\n");
+        fclose(fileDisk);
+        return;    // proceso no tiene entrada
+    }
+
+    fseek(fileDisk, entry*256, SEEK_SET);
+    unsigned char buffer[256];
+    fread(buffer,sizeof(buffer),1,fileDisk);
+
+    printf("Entrada (0 a 16): %i\n", entry);
+    for(int j=0;j<10;j++){
+        if(buffer[14+j*21] != 0x01){
+            continue;
+        }
+        printf("Entrada archivo (0 a 10): %i\n", j);
+
+        char filename[12];
+        for(int k = 0; k<12; k++){
+            sprintf(&filename[k],"%c",(char) buffer[14+j*21+k+1]);
+        }
+        printf("Filename: %s\n",filename);
+        
+        int vpn = 0;
+        int aux = 16;
+        int pos_bit = 3;
+        int pos_byte = 17;
+        for(int i = 0; i<5; i++){
+            if (pos_bit == -1) {
+                pos_bit = 7;
+                pos_byte++;
+                aux = 1;
+            }
+            
+            int bit = (buffer[14+j*21+pos_byte]>> pos_bit) & 1;
+            bit *= aux; // bit = bit * aux; bit = 0
+            vpn += bit;
+
+            aux /= 2;
+            pos_bit--;
+        }
+
+        //dir = direcc fisica relativa
+        // revisar offset 
+        int offset = 0;
+        int aux = 4194304;
+        for(int i = 0; i<23; i++){
+            if (pos_bit == 0) {
+                pos_bit = 7;
+                pos_byte++;
+            }
+            
+            int bit = (buffer[14+j*21+pos_byte]>> pos_bit) & 1;
+            bit *= aux;
+            offset += bit;
+
+            aux /= 2;
+            pos_bit--;
+        }
+        printf("VPN: %i de archivo %s ira a Entrada %i\n", vpn, filename, vpn+1);
+        
+        //Tabla de paginas 
+        int pos_tabla = vpn;
+        int pfn = (int) buffer[223 + pos_tabla] - 128;
+        int bit_validez = (buffer[222+pos_tabla]) >> 7 && 0x01;
+        long dir = 4096 + 16 + pfn*8388608 + offset;
+
+
+
+        
+    }
+    
+    //Cambia nombre a 0
+    int init = entry*256;
+    for(int k = 0; k<256; k++){
+        uint8_t byte = 0;
+        fseek(fileDisk,init+k,SEEK_SET);
+        fwrite(&byte,1,1,fileDisk);
+    }
+    
+    fclose(fileDisk);
+    return;    
+}
+
+      
+
+
+
+//-1 si no se encuentra, posicion de la subentrada si si se encuentra. 
+//TODO: posible fallo en comparacion debido a los null
+int cr_find_file(int entry, char* file_name){
+    printf("Checking if file %s exist in entry %i, and where.\n",file_name, entry);
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb"); 
+
+    fseek(fileDisk, entry*256, SEEK_SET);
+    unsigned char buffer[256];
+    fread(buffer,sizeof(buffer),1,fileDisk);
+
+    for(int j=0;j<10;j++){
+        if(buffer[14+j*21] != 0x01){
+            continue;
+        }
+        char filename[12];
+        for(int k = 0; k<12; k++){
+            sprintf(&filename[k],"%c",(char) buffer[14+j*21+k+1]);
+        }
+
+        if(strcmp(filename, file_name) == 0){
+            fclose(fileDisk);
+            return j;
+        }
+    }
+    fclose(fileDisk);
+    return -1;
 }
 
 // -1 si no se encuentra, posicion de la subentrada si si se encuentra. 
@@ -192,6 +381,7 @@ int find_process_entry (int process_id) {
     fclose(fileDisk);
     return -1;
 }
+
 
 
 CrmsFile* cr_open (int process_id, char* file_name, char mode) {
