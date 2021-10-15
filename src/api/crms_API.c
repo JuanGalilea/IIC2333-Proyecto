@@ -119,8 +119,10 @@ int cr_exists(int process_id, char* file_name){
     return 0;
 }
 
-int find_process_entry (int process_id) {
-    printf("Looking for the entry of process %i.\n", process_id);
+// TODO: utilizar cr_find_file para crear esta func???
+int cr_exists1(int process_id, char* file_name){
+    printf("Checking if file %s exist in process %i.\n",file_name, process_id);
+
     FILE *fileDisk;
 
     fileDisk = fopen(diskPath,"rb"); 
@@ -329,6 +331,56 @@ int cr_find_file(int entry, char* file_name){
     return -1;
 }
 
+// -1 si no se encuentra, posicion de la subentrada si si se encuentra. 
+// TODO: posible fallo en comparacion debido a los null
+int cr_find_file(int entry, char* file_name){
+    printf("Checking if file %s exist in entry %i, and where.\n",file_name, entry);
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb"); 
+
+    fseek(fileDisk, entry*256, SEEK_SET);
+    unsigned char buffer[256];
+    fread(buffer,sizeof(buffer),1,fileDisk);
+
+    for(int j=0;j<10;j++){
+        if(buffer[14+j*21] != 0x01){
+            continue;
+        }
+        char filename[12];
+        for(int k = 0; k<12; k++){
+            sprintf(&filename[k],"%c",(char) buffer[14+j*21+k+1]);
+        }
+
+        if(strcmp(filename, file_name) == 0){
+            fclose(fileDisk);
+            return j;
+        }
+    }
+    fclose(fileDisk);
+    return -1;
+}
+
+int find_process_entry (int process_id) {
+    printf("Looking for the entry of process %i.\n", process_id);
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb"); 
+
+    for(int i = 0; i < 16; i++){
+        fseek(fileDisk, i*256, SEEK_SET);
+        unsigned char buffer[256];
+        fread(buffer,sizeof(buffer),1,fileDisk);
+                
+        unsigned int pid = buffer[1];
+        if (pid == process_id){
+            fclose(fileDisk);
+            return i;
+        }   // not found
+    }
+    fclose(fileDisk);
+    return -1;
+}
 
 
 
