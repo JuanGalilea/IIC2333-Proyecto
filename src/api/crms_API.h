@@ -16,4 +16,5 @@ void cr_ls_processes();
 int cr_exists1(int process_id, char* file_name);
 void cr_ls_files(int process_id);
 void cr_finish_process(int process_id);
+void cr_start_process(int process_id, char *process_name);
 CrmsFile* cr_open (int process_id, char* file_name, char mode);
