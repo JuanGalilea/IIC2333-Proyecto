@@ -224,97 +224,97 @@ int find_process_entry (int process_id) {
     return -1;
 }
 
-void cr_finish_process(int process_id){
+// void cr_finish_process(int process_id){
     
-    printf("List of files in process with pid %i.\n",process_id);
-    FILE *fileDisk;
-    fileDisk = fopen(diskPath,"rb+"); 
+//     printf("List of files in process with pid %i.\n",process_id);
+//     FILE *fileDisk;
+//     fileDisk = fopen(diskPath,"rb+"); 
 
-    int entry = find_process_entry(process_id);
-    //entry = entrada en la tabla de pcbs
-    if (entry == -1){
-        printf("Process doesn't exists :(\n");
-        fclose(fileDisk);
-        return;    // proceso no tiene entrada
-    }
+//     int entry = find_process_entry(process_id);
+//     //entry = entrada en la tabla de pcbs
+//     if (entry == -1){
+//         printf("Process doesn't exists :(\n");
+//         fclose(fileDisk);
+//         return;    // proceso no tiene entrada
+//     }
 
-    fseek(fileDisk, entry*256, SEEK_SET);
-    unsigned char buffer[256];
-    fread(buffer,sizeof(buffer),1,fileDisk);
+//     fseek(fileDisk, entry*256, SEEK_SET);
+//     unsigned char buffer[256];
+//     fread(buffer,sizeof(buffer),1,fileDisk);
 
-    printf("Entrada (0 a 16): %i\n", entry);
-    for(int j=0;j<10;j++){
-        if(buffer[14+j*21] != 0x01){
-            continue;
-        }
-        printf("Entrada archivo (0 a 10): %i\n", j);
+//     printf("Entrada (0 a 16): %i\n", entry);
+//     for(int j=0;j<10;j++){
+//         if(buffer[14+j*21] != 0x01){
+//             continue;
+//         }
+//         printf("Entrada archivo (0 a 10): %i\n", j);
 
-        char filename[12];
-        for(int k = 0; k<12; k++){
-            sprintf(&filename[k],"%c",(char) buffer[14+j*21+k+1]);
-        }
-        printf("Filename: %s\n",filename);
+//         char filename[12];
+//         for(int k = 0; k<12; k++){
+//             sprintf(&filename[k],"%c",(char) buffer[14+j*21+k+1]);
+//         }
+//         printf("Filename: %s\n",filename);
         
-        int vpn = 0;
-        int aux = 16;
-        int pos_bit = 3;
-        int pos_byte = 17;
-        for(int i = 0; i<5; i++){
-            if (pos_bit == -1) {
-                pos_bit = 7;
-                pos_byte++;
-                aux = 1;
-            }
+//         int vpn = 0;
+//         int aux = 16;
+//         int pos_bit = 3;
+//         int pos_byte = 17;
+//         for(int i = 0; i<5; i++){
+//             if (pos_bit == -1) {
+//                 pos_bit = 7;
+//                 pos_byte++;
+//                 aux = 1;
+//             }
             
-            int bit = (buffer[14+j*21+pos_byte]>> pos_bit) & 1;
-            bit *= aux; // bit = bit * aux; bit = 0
-            vpn += bit;
+//             int bit = (buffer[14+j*21+pos_byte]>> pos_bit) & 1;
+//             bit *= aux; // bit = bit * aux; bit = 0
+//             vpn += bit;
 
-            aux /= 2;
-            pos_bit--;
-        }
+//             aux /= 2;
+//             pos_bit--;
+//         }
 
-        //dir = direcc fisica relativa
-        // revisar offset 
-        int offset = 0;
-        aux = 4194304;
-        for(int i = 0; i<23; i++){
-            if (pos_bit == -1) {
-                pos_bit = 7;
-                pos_byte++;
-            }
+//         //dir = direcc fisica relativa
+//         // revisar offset 
+//         int offset = 0;
+//         aux = 4194304;
+//         for(int i = 0; i<23; i++){
+//             if (pos_bit == -1) {
+//                 pos_bit = 7;
+//                 pos_byte++;
+//             }
             
-            int bit = (buffer[14+j*21+pos_byte]>> pos_bit) & 1;
-            bit *= aux;
-            offset += bit;
+//             int bit = (buffer[14+j*21+pos_byte]>> pos_bit) & 1;
+//             bit *= aux;
+//             offset += bit;
 
-            aux /= 2;
-            pos_bit--;
-        }
-        printf("VPN: %i de archivo %s ira a Entrada %i\n", vpn, filename, vpn+1);
+//             aux /= 2;
+//             pos_bit--;
+//         }
+//         printf("VPN: %i de archivo %s ira a Entrada %i\n", vpn, filename, vpn+1);
         
-        //Tabla de paginas 
-        // int pos_tabla = vpn;
-        // int pfn = (int) buffer[223 + pos_tabla] - 128;
-        // int bit_validez = (buffer[222+pos_tabla]) >> 7 && 0x01;
-        // long dir = 4096 + 16 + pfn*8388608 + offset;
+//         //Tabla de paginas 
+//         // int pos_tabla = vpn;
+//         // int pfn = (int) buffer[223 + pos_tabla] - 128;
+//         // int bit_validez = (buffer[222+pos_tabla]) >> 7 && 0x01;
+//         // long dir = 4096 + 16 + pfn*8388608 + offset;
 
 
 
         
-    }
+//     }
     
-    //Cambia nombre a 0
-    int init = entry*256;
-    for(int k = 0; k<256; k++){
-        uint8_t byte = 0;
-        fseek(fileDisk,init+k,SEEK_SET);
-        fwrite(&byte,1,1,fileDisk);
-    }
+//     //Cambia nombre a 0
+//     int init = entry*256;
+//     for(int k = 0; k<256; k++){
+//         uint8_t byte = 0;
+//         fseek(fileDisk,init+k,SEEK_SET);
+//         fwrite(&byte,1,1,fileDisk);
+//     }
     
-    fclose(fileDisk);
-    return;    
-}
+//     fclose(fileDisk);
+//     return;    
+// }
 
 
 VirtualAddress find_lowest_space_after (int entry, int vpn, int offset) {
@@ -678,4 +678,241 @@ void cr_close(CrmsFile* file_desc){
     printf("Closing file %s\n.", file_desc->filename);
     free(file_desc->filename);
     free(file_desc);
+}
+
+void cr_finish_process(int process_id){
+    
+    printf("List of files in process with pid %i.\n",process_id);
+    FILE *fileDisk;
+    fileDisk = fopen(diskPath,"rb+"); 
+
+    int entry = find_process_entry(process_id);
+    //entry = entrada en la tabla de pcbs
+    if (entry == -1){
+        printf("Process doesn't exists :(\n");
+        fclose(fileDisk);
+        return;    // proceso no tiene entrada
+    }
+    int init = entry*256;
+    fseek(fileDisk, entry*256, SEEK_SET);
+    unsigned char buffer[256];
+    fread(buffer,sizeof(buffer),1,fileDisk);
+
+    printf("Entrada (0 a 16): %i\n", entry);
+
+    //for(int k = 0; k<256; k++){
+    
+    //cambio estado pcbs
+    uint8_t byte = 0;
+    fseek(fileDisk,init,SEEK_SET);
+    printf("byte de estado pcbs antes: %x", buffer[init]);
+    fwrite(&byte,1,1,fileDisk);
+    printf("byte de estado pcbs despues: %x", buffer[init]);
+
+
+    for(int j=0;j<10;j++){
+        if(buffer[14+j*21] != 0x01){
+            continue;
+        }
+        printf("Entrada archivo (0 a 10): %i\n", j);
+
+        //cambio estado entradas de archivos
+        fseek(fileDisk,init+14+21*j,SEEK_SET);
+        printf("byte de estado pcbs antes: %x", buffer[init+14+21*j]);
+        fwrite(&byte,1,1,fileDisk);
+        printf("byte de estado pcbs despues: %x", buffer[init+14+21*j]);
+
+        char filename[12];
+        for(int k = 0; k<12; k++){
+            sprintf(&filename[k],"%c",(char) buffer[14+j*21+k+1]);
+        }
+        printf("Filename: %s\n",filename);
+        
+        int vpn = 0;
+        int aux = 16;
+        int pos_bit = 3;
+        int pos_byte = 17;
+        for(int i = 0; i<5; i++){
+            if (pos_bit == -1) {
+                pos_bit = 7;
+                pos_byte++;
+                aux = 1;
+            }
+            
+            int bit = (buffer[14+j*21+pos_byte]>> pos_bit) & 1;
+            bit *= aux; // bit = bit * aux; bit = 0
+            vpn += bit;
+
+            aux /= 2;
+            pos_bit--;
+        }
+
+        //dir = direcc fisica relativa
+        // pos_byte = 18
+        // pos_bit = -2
+        pos_bit = 6;
+        int offset = 0;
+        aux = 4194304;
+        for(int i = 0; i<23; i++){
+            if (pos_bit == -1) {
+                pos_bit = 7;
+                pos_byte++;
+            }
+            
+            int bit = (buffer[14+j*21+pos_byte]>> pos_bit) & 1;
+            bit *= aux;
+            offset += bit;
+
+            aux /= 2;
+            pos_bit--;
+        }
+        printf("VPN: %i de archivo %s con offset: %i ira a Entrada %i\n", vpn, filename, offset, vpn+1);
+        
+        //Tabla de paginas 
+        int pos_tabla = vpn;
+        int pfn = (int) buffer[223 + pos_tabla] - 128;
+
+        long dir = 4096 + 16 + pfn*8388608 + offset;  //8388608 = 2**22 = 8MB
+        
+        char bytes[4];
+        bytes[0] = buffer[14+21*j+13];
+        bytes[1] = buffer[14+21*j+14];
+        bytes[2] = buffer[14+21*j+15];
+        bytes[3] = buffer[14+21*j+16];        
+        
+        int* pInt = (int*)bytes;
+        uint32_t le = *pInt;
+        uint32_t be = __builtin_bswap32(le);
+        // printf("Big-endian:    0x%" PRIx32 "\n", be);
+        printf("tamano: %i\n", be);
+        //https://stackoverflow.com/questions/19275955/convert-little-endian-to-big-endian/19276193
+       
+        
+        fseek(fileDisk, 4096, SEEK_SET);
+        unsigned char buffer1[16];
+        fread(buffer1,sizeof(buffer1),1,fileDisk);
+
+        int byte_seleccionado;
+        int posicion_bit;
+        int resto = pfn%8;
+        byte_seleccionado = (int) (pfn/8);
+        posicion_bit = resto;
+
+        if(be >= 8388608 && offset == 0){
+            int frames_usados = (int) be/8388608;
+            int frames_resto = be%8388608;
+            int frames_totales;
+            if(frames_resto == 0){
+                frames_totales = frames_usados;
+            }else{
+                frames_totales = frames_usados + 1;
+            }            
+
+            //Cambio la tabla framebitmap
+            for(int f = 0; f < frames_totales; f++){
+                if(posicion_bit == -1){
+                    posicion_bit = 7;
+                    byte_seleccionado++;
+                }
+                int nuevo_byte = buffer1[byte_seleccionado] & (~(0x01 << posicion_bit));
+                fwrite(&nuevo_byte,dir,1,fileDisk);
+                posicion_bit--;
+            }
+        }
+        if(be<8388608 && be>0 && offset == 0){
+
+            int nuevo_byte = buffer1[byte_seleccionado] & (~(0x01 << posicion_bit));
+            fwrite(&nuevo_byte,dir,1,fileDisk);
+        }
+
+    }
+    
+    
+    fclose(fileDisk);
+    return;    
+}
+
+void cr_delete_file(CrmsFile* file_desc){
+    FILE *fileDisk;
+    fileDisk = fopen(diskPath,"rb+"); 
+    int process_id = file_desc->process_id;
+    int entry = find_process_entry(process_id);
+    int vpn = file_desc->raw_data >> 23;
+    int offset = (file_desc->raw_data << 9) >> 9;
+   
+    //entry = entrada en la tabla de pcbs
+    
+    int init = entry*256;
+    fseek(fileDisk, entry*256, SEEK_SET);
+    unsigned char buffer[256];
+    fread(buffer,sizeof(buffer),1,fileDisk);
+
+    printf("Entrada (0 a 16): %i\n", entry);
+
+    //for(int k = 0; k<256; k++){
+    
+    //cambio estado pcbs
+    uint8_t byte = 0;
+    fseek(fileDisk,init,SEEK_SET);
+    fwrite(&byte,1,1,fileDisk);
+
+    int subentry = cr_find_file(entry, file_desc->filename);
+
+    //cambio estado entradas de archivos
+    fseek(fileDisk,init+14+21*subentry,SEEK_SET);
+    fwrite(&byte,1,1,fileDisk);
+    
+    //Tabla de paginas 
+    int pos_tabla = vpn;
+    int pfn = (int) buffer[223 + pos_tabla] - 128;
+
+    long dir = 4096 + 16 + pfn*8388608 + offset;  //8388608 = 2**22 = 8MB
+    
+    char bytes[4];
+    bytes[0] = buffer[14+21*subentry+13];
+    bytes[1] = buffer[14+21*subentry+14];
+    bytes[2] = buffer[14+21*subentry+15];
+    bytes[3] = buffer[14+21*subentry+16];        
+    
+    int* pInt = (int*)bytes;
+    uint32_t le = *pInt;
+    uint32_t be = __builtin_bswap32(le);
+    printf("tamano: %i\n", be);
+    //https://stackoverflow.com/questions/19275955/convert-little-endian-to-big-endian/19276193
+    
+    
+    fseek(fileDisk, 4096, SEEK_SET);
+    unsigned char buffer1[16];
+    fread(buffer1,sizeof(buffer1),1,fileDisk);
+
+    int byte_seleccionado;
+    int posicion_bit;
+    int resto = pfn%8;
+    byte_seleccionado = (int) (pfn/8);
+    posicion_bit = resto;
+
+    if(be >= 8388608 && offset == 0){
+        int frames_usados = (int) be/8388608;
+        int frames_totales;
+        frames_totales = frames_usados;       
+
+        //Cambio la tabla framebitmap
+        for(int f = 0; f < frames_totales; f++){
+            if(posicion_bit == -1){
+                posicion_bit = 7;
+                byte_seleccionado++;
+            }
+            int nuevo_byte = buffer1[byte_seleccionado] & (~(0x01 << posicion_bit));
+            fwrite(&nuevo_byte,dir,1,fileDisk);
+            posicion_bit--;
+        }
+    }
+    if(be<8388608 && be>0 && offset == 0){
+
+        int nuevo_byte = buffer1[byte_seleccionado] & (~(0x01 << posicion_bit));
+        fwrite(&nuevo_byte,dir,1,fileDisk);
+    }
+    
+    fclose(fileDisk);
+    return;    
 }
