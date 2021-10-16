@@ -22,5 +22,6 @@ int cr_exists1(int process_id, char* file_name);
 void cr_ls_files(int process_id);
 void cr_finish_process(int process_id);
 void cr_start_process(int process_id, char *process_name);
-CrmsFile* cr_open(int process_id, char* file_name, char mode);
-int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes)
+CrmsFile* cr_open (int process_id, char* file_name, char mode);
+void cr_close(CrmsFile* file_desc);
+int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes);
