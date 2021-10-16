@@ -1,6 +1,7 @@
 #include "crms_API.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdint.h>
 
 int len_string(char* string){
@@ -201,8 +202,26 @@ void cr_start_process(int process_id, char *process_name){
     fclose(fileDisk);
 }
 
-void escribir(){
 
+int find_process_entry (int process_id) {
+    printf("Looking for the entry of process %i.\n", process_id);
+    FILE *fileDisk;
+
+    fileDisk = fopen(diskPath,"rb"); 
+
+    for(int i = 0; i < 16; i++){
+        fseek(fileDisk, i*256, SEEK_SET);
+        unsigned char buffer[256];
+        fread(buffer,sizeof(buffer),1,fileDisk);
+                
+        unsigned int pid = buffer[1];
+        if (pid == process_id && buffer[0] == 0x01){
+            fclose(fileDisk);
+            return i;
+        }   // not found
+    }
+    fclose(fileDisk);
+    return -1;
 }
 
 void cr_finish_process(int process_id){
@@ -258,7 +277,7 @@ void cr_finish_process(int process_id){
         //dir = direcc fisica relativa
         // revisar offset 
         int offset = 0;
-        int aux = 4194304;
+        aux = 4194304;
         for(int i = 0; i<23; i++){
             if (pos_bit == -1) {
                 pos_bit = 7;
@@ -275,10 +294,10 @@ void cr_finish_process(int process_id){
         printf("VPN: %i de archivo %s ira a Entrada %i\n", vpn, filename, vpn+1);
         
         //Tabla de paginas 
-        int pos_tabla = vpn;
-        int pfn = (int) buffer[223 + pos_tabla] - 128;
-        int bit_validez = (buffer[222+pos_tabla]) >> 7 && 0x01;
-        long dir = 4096 + 16 + pfn*8388608 + offset;
+        // int pos_tabla = vpn;
+        // int pfn = (int) buffer[223 + pos_tabla] - 128;
+        // int bit_validez = (buffer[222+pos_tabla]) >> 7 && 0x01;
+        // long dir = 4096 + 16 + pfn*8388608 + offset;
 
 
 
@@ -295,135 +314,6 @@ void cr_finish_process(int process_id){
     
     fclose(fileDisk);
     return;    
-}
-
-
-
-// muere si no quedan frames para continuar o se termina espacio contiguo
-int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
-    int entry = find_process_entry(file_desc->process_id);
-
-    // Es nuevo? hay que pillar donde escribir y dejarlo en raw_data
-    if (file_desc->raw_data >> 24 == 240) {
-        return NULL;
-    }
-    
-    // empieza la escritura con un raw_data valido
-    int vpn = file_desc->raw_data >> 23;
-    int offset = (file_desc->raw_data << 9) >> 9;
-    VirtualAddress next = find_lowest_space_after(entry, vpn, offset);
-
-    int amount_written = 0;
-
-    // checkeamos espacio
-    int append_position = offset + file_desc->size;
-    int pages_crossed = 0;
-    while (append_position >= (int)(0x01 << 23)) {
-        append_position -= (int) (0x01 << 23);
-        pages_crossed++;
-    }
-    if (vpn + pages_crossed >= 32) {
-        return NULL;
-    }
-
-    // si hay siguiente archivo en las pags
-    if (next.vpn != -1 || next.offset != -1) {
-        // si hay espacio (por lo menos 1 byte) antes del sgte
-        if (vpn + pages_crossed < next.vpn || append_position < next.offset) {
-            // escribimos
-            //Tabla de paginas 
-            // int pos_tabla = vpn;
-            // int pfn = (int) (buffer[223 + pos_tabla]) - 128;
-            // long dir = 4096 + 16 + pfn*8388608 + offset;
-            
-            int end_write_flag = 0;
-
-            while (1){
-                FILE *readWriteDisk;
-
-                readWriteDisk = fopen(diskPath, "rb+");
-                // nos paramos en la tabla de paginas del proceso
-                fseek(readWriteDisk, 256*entry+224+vpn+pages_crossed, SEEK_SET);
-                unsigned char page_table_entry;
-                fread(page_table_entry, sizeof(page_table_entry), 1, readWriteDisk);
-
-                int pfn;
-                // checkeamos que sea una pag valida
-                if (page_table_entry >= 0x01 << 7) {
-                    pfn = (int) ((page_table_entry << 1) >> 1);
-                }
-                // pedimos un nuevo frame
-                else {
-                    // abrimos el frame bitmap para buscar un nuevo frame disponible
-                    fseek(readWriteDisk, 4096, SEEK_SET);
-                    unsigned char frame_bitmap[16];
-                    fread(frame_bitmap, sizeof(frame_bitmap), 1, readWriteDisk);
-                    int continue_flag = 1;
-                    int i;
-                    int j;
-                    for (i = 0; continue_flag && i<16; i++) {
-                        for (j = 0; continue_flag && j < 8; j++) {
-                            // está libre este espacio
-                            if (!(0x80 & (frame_bitmap[i] << j))) {
-                                fseek(readWriteDisk, 4096+i, SEEK_SET);
-                                fwrite(frame_bitmap[i] + (0x80 >> j), sizeof(char), 1, readWriteDisk);
-                                continue_flag = 0;
-                            }
-                        }
-                    }
-                    if (!continue_flag) {
-                        uint8_t aux_pfn = 1*(j)+8*i;
-                        pfn = 1*(j)+8*i;
-                        fseek(readWriteDisk, 256*entry+224+vpn+pages_crossed, SEEK_SET);
-                        fwrite((char) (128+pfn), sizeof(uint8_t), 1, readWriteDisk);
-                    }
-                    // no pillamos frame
-                    else {
-                        fclose(readWriteDisk);
-                        return amount_written;
-                    }
-                }
-                // escribimos
-                int bytes_to_write;
-                if (vpn + pages_crossed == next.vpn) {
-                    bytes_to_write = next.offset - append_position;
-                    if (amount_written + bytes_to_write > n_bytes) {
-                        bytes_to_write = n_bytes - amount_written;
-                    }
-                    end_write_flag = 1;
-                }
-                else {
-                    bytes_to_write = (0x01 << 23) - append_position;
-                    if (amount_written + bytes_to_write > n_bytes) {
-                        bytes_to_write = n_bytes - amount_written;
-                        end_write_flag = 1;
-                    }
-                }
-                // ahora escribimos bytes_to_write bytes
-                fwrite(buffer, sizeof(char), bytes_to_write, readWriteDisk);
-
-                // recuento de cuanto he escrito
-                amount_written += bytes_to_write;
-
-                // condiciones de termino
-                if (end_write_flag) {
-                    fclose(readWriteDisk);
-                    return amount_written;
-                }
-
-                // pasamos a la sgte página
-                pages_crossed++;
-                append_position = 0;
-            }
-
-
-        }
-    }
-
-    else {
-    // si (terminada la pagina) queda otro frame
-
-    }
 }
 
 
@@ -509,6 +399,139 @@ VirtualAddress find_lowest_space_after (int entry, int vpn, int offset) {
 }
 
 
+// muere si no quedan frames para continuar o se termina espacio contiguo
+int cr_write_file(CrmsFile* file_desc, void* buffer, int n_bytes){
+    int entry = find_process_entry(file_desc->process_id);
+
+    // Es nuevo? hay que pillar donde escribir y dejarlo en raw_data
+    if (file_desc->raw_data >> 24 == 240) {
+        return 0;
+    }
+    
+    // empieza la escritura con un raw_data valido
+    int vpn = file_desc->raw_data >> 23;
+    int offset = (file_desc->raw_data << 9) >> 9;
+    VirtualAddress next = find_lowest_space_after(entry, vpn, offset);
+
+    int amount_written = 0;
+
+    // checkeamos espacio
+    int append_position = offset + file_desc->size;
+    int pages_crossed = 0;
+    while (append_position >= (int)(0x01 << 23)) {
+        append_position -= (int) (0x01 << 23);
+        pages_crossed++;
+    }
+    if (vpn + pages_crossed >= 32) {
+        return 0;
+    }
+
+    // si hay siguiente archivo en las pags
+    if (next.vpn != -1 || next.offset != -1) {
+        // si hay espacio (por lo menos 1 byte) antes del sgte
+        if (vpn + pages_crossed < next.vpn || append_position < next.offset) {
+            // escribimos
+            //Tabla de paginas 
+            // int pos_tabla = vpn;
+            // int pfn = (int) (buffer[223 + pos_tabla]) - 128;
+            // long dir = 4096 + 16 + pfn*8388608 + offset;
+            
+            int end_write_flag = 0;
+
+            while (1){
+                FILE *readWriteDisk;
+
+                readWriteDisk = fopen(diskPath, "rb+");
+                // nos paramos en la tabla de paginas del proceso
+                fseek(readWriteDisk, 256*entry+224+vpn+pages_crossed, SEEK_SET);
+                unsigned char page_table_entry;
+                fread(&page_table_entry, sizeof(page_table_entry), 1, readWriteDisk);
+
+                int pfn;
+                // checkeamos que sea una pag valida
+                if (page_table_entry >= 0x01 << 7) {
+                    pfn = (int) ((page_table_entry << 1) >> 1);
+                }
+                // pedimos un nuevo frame
+                else {
+                    // abrimos el frame bitmap para buscar un nuevo frame disponible
+                    fseek(readWriteDisk, 4096, SEEK_SET);
+                    unsigned char frame_bitmap[16];
+                    fread(frame_bitmap, sizeof(frame_bitmap), 1, readWriteDisk);
+                    int continue_flag = 1;
+                    int i;
+                    int j;
+                    for (i = 0; continue_flag && i<16; i++) {
+                        for (j = 0; continue_flag && j < 8; j++) {
+                            // está libre este espacio
+                            if (!(0x80 & (frame_bitmap[i] << j))) {
+                                fseek(readWriteDisk, 4096+i, SEEK_SET);
+                                char auxx = frame_bitmap[i] + (0x80 >> j);
+                                fwrite(&auxx, sizeof(char), 1, readWriteDisk);
+                                continue_flag = 0;
+                            }
+                        }
+                    }
+                    if (!continue_flag) {
+                        uint8_t aux_pfn = 1*(j)+8*i;
+                        // pfn = 1*(j)+8*i;
+                        uint8_t auxx = 128 + aux_pfn;
+                        fseek(readWriteDisk, 256*entry+224+vpn+pages_crossed, SEEK_SET);
+                        fwrite(&auxx, sizeof(uint8_t), 1, readWriteDisk);
+                    }
+                    // no pillamos frame
+                    else {
+                        fclose(readWriteDisk);
+                        return amount_written;
+                    }
+                }
+                // escribimos
+                int bytes_to_write;
+                if (vpn + pages_crossed == next.vpn) {
+                    bytes_to_write = next.offset - append_position;
+                    if (amount_written + bytes_to_write > n_bytes) {
+                        bytes_to_write = n_bytes - amount_written;
+                    }
+                    end_write_flag = 1;
+                }
+                else {
+                    bytes_to_write = (0x01 << 23) - append_position;
+                    if (amount_written + bytes_to_write > n_bytes) {
+                        bytes_to_write = n_bytes - amount_written;
+                        end_write_flag = 1;
+                    }
+                }
+                // ahora escribimos bytes_to_write bytes
+                fseek(readWriteDisk, (pfn << 23) + append_position, SEEK_SET);
+                fwrite(buffer, sizeof(char), bytes_to_write, readWriteDisk);
+
+                // recuento de cuanto he escrito
+                amount_written += bytes_to_write;
+
+                // condiciones de termino
+                if (end_write_flag) {
+                    fclose(readWriteDisk);
+                    return amount_written;
+                }
+
+                // pasamos a la sgte página
+                pages_crossed++;
+                append_position = 0;
+            }
+            return 0;
+
+
+        }
+        return 0;
+    }
+
+    else {
+    // si (terminada la pagina) queda otro frame
+        return 0;
+    }
+}
+
+
 
 //-1 si no se encuentra, posicion de la subentrada si si se encuentra. 
 //TODO: posible fallo en comparacion debido a los null
@@ -540,33 +563,12 @@ int cr_find_file(int entry, char* file_name){
     return -1;
 }
 
-int find_process_entry (int process_id) {
-    printf("Looking for the entry of process %i.\n", process_id);
-    FILE *fileDisk;
-
-    fileDisk = fopen(diskPath,"rb"); 
-
-    for(int i = 0; i < 16; i++){
-        fseek(fileDisk, i*256, SEEK_SET);
-        unsigned char buffer[256];
-        fread(buffer,sizeof(buffer),1,fileDisk);
-                
-        unsigned int pid = buffer[1];
-        if (pid == process_id && buffer[0] == 0x01){
-            fclose(fileDisk);
-            return i;
-        }   // not found
-    }
-    fclose(fileDisk);
-    return -1;
-}
-
 CrmsFile* cr_open (int process_id, char* file_name, char mode) {
     CrmsFile* output = malloc(sizeof(CrmsFile));
 
     int entry = find_process_entry(process_id);
     if (entry == -1){
-        return NULL;    // proceso no tiene entrada
+        return 0;    // proceso no tiene entrada
     }
     int subentry = cr_find_file(entry, file_name);
 
@@ -657,13 +659,14 @@ CrmsFile* cr_open (int process_id, char* file_name, char mode) {
         to_write[20] = 0x00;    // offset
 
         fwrite(to_write, sizeof(char), 21, writeDisk);
-        fclose(fwrite);
+        fclose(writeDisk);
         return output;
     }
 
     else {
         free(output->filename);
         free(output);
+        return NULL;
         // ERROROROOROROROOR
     }
 
