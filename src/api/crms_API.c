@@ -442,11 +442,12 @@ CrmsFile* cr_open (int process_id, char* file_name, char mode) {
         to_write[16] = 0x00;
 
         // 4 bytes de la direccion virtual TODO: cambiar al valor correcto
-        output->raw_data = 0;
-        to_write[17] = 0x00;
-        to_write[18] = 0x00;
-        to_write[19] = 0x00;
-        to_write[20] = 0x00;
+        output->raw_data = 240 << 24;
+        // si los primeros 4 son 1 entonces no tiene memoria asignada todavía
+        to_write[17] = 0xf0;    // 4 bits no significativos + 4 de VPN
+        to_write[18] = 0x00;    // ultimo bit del VPN y inicio del offset
+        to_write[19] = 0x00;    // offset
+        to_write[20] = 0x00;    // offset
 
         fwrite(to_write, sizeof(char), 21, writeDisk);
         fclose(fwrite);
