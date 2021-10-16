@@ -461,3 +461,11 @@ CrmsFile* cr_open (int process_id, char* file_name, char mode) {
     }
 
 }
+
+
+
+void cr_close(CrmsFile* file_desc){
+    printf("Closing file %s\n.", file_desc->filename);
+    free(file_desc->filename);
+    free(file_desc);
+}
