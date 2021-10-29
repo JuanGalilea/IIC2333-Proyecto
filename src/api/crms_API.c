@@ -705,9 +705,9 @@ void cr_finish_process(int process_id){
     //cambio estado pcbs
     uint8_t byte = 0;
     fseek(fileDisk,init,SEEK_SET);
-    printf("byte de estado pcbs antes: %x", buffer[init]);
+    printf("byte de estado pcbs antes: %x\n", buffer[init]);
     fwrite(&byte,1,1,fileDisk);
-    printf("byte de estado pcbs despues: %x", buffer[init]);
+    printf("byte de estado pcbs despues: %x\n", buffer[init]);
 
 
     for(int j=0;j<10;j++){
