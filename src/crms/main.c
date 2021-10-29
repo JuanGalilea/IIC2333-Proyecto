@@ -34,7 +34,7 @@ int main(int argc, char **argv)
   char filename[50];
   printf("Ingresa el nombre del archivo, para ver si existe: ");
   scanf("%s", filename);
-  int ex = cr_exists(i,filename);
+  int ex = cr_exists1(i,filename);
   if (ex == 1){
     printf("File exists in process.\n");
   }else{
@@ -43,18 +43,6 @@ int main(int argc, char **argv)
   printf("\n");
   printf("\n");
   cr_ls_files(i);
-  printf("\n");
-  printf("\n");
-
-  char filename2[50];
-  printf("Ingresa el nombre del archivo, para ver si existe: ");
-  scanf("%s", filename2);
-  int ex1 = cr_exists(i,filename2);
-  if (ex1 == 1){
-    printf("File exists in process.\n");
-  }else{
-    printf("File not exists in process.\n");
-  }
   printf("\n");
   printf("\n");
 
@@ -115,4 +103,28 @@ int main(int argc, char **argv)
   printf("\n");
   printf("\n");
   cr_close(archivo1);
+  printf("\n");
+  printf("\n");
+  printf("--------------------------Delete file--------------------------\n");
+  printf("\n");
+  printf("\n");
+  cr_ls_files(o);
+  printf("\n");
+  printf("\n");
+  char archivo3[50];
+  printf("Ingresa el nombre del archivo: ");
+  scanf("%s", archivo3);
+  CrmsFile* archivo2;
+  archivo2 = cr_open(o, archivo3, 'r');
+  printf("\n");
+  printf("\n");
+  printf("nombre del archivo: %s, pid: %i, size: %i", archivo1->filename, archivo1->process_id, archivo1->size);
+  printf("\n");
+  printf("\n");
+  printf("Enter para eliminar archivo: ");
+  char archivo4[50];
+  scanf("%s", archivo4);
+  cr_delete_file(archivo2);
+  cr_ls_files(o);
+  
 }
